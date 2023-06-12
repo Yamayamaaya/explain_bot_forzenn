@@ -82,33 +82,32 @@ function App() {
             return newFileName;
         } catch (error) {
             console.log("generateNewFileNameError:", error);
+            throw error;
         }
     };
 
     // MDファイルγの取得
-    const fetchMDFile = (url, headers) => {
-        return axios
-            .get(url, { headers })
-            .then((response) => {
-                if (response.status === 200) {
-                    return response.data;
-                } else if (response.status === 404) {
-                    return null;
-                } else {
-                    throw new Error("Failed to fetch MD file");
-                }
-            })
-            .catch((error) => {
-                if (error.response && error.response.status === 404) {
-                    return null;
-                } else {
-                    throw error;
-                }
-            });
+    const fetchMDFile = async (url, headers) => {
+        try {
+            const response = await axios.get(url, { headers });
+            if (response.status === 200) {
+                return response.data;
+            } else if (response.status === 404) {
+                return null;
+            } else {
+                throw new Error("Failed to fetch MD file");
+            }
+        } catch (error) {
+            if (error.response && error.response.status === 404) {
+                return null;
+            } else {
+                throw error;
+            }
+        }
     };
 
     // MDファイルγの書き換えとプッシュ
-    const updateMDFile = (requestUrl, content, headers, mdFile) => {
+    const updateMDFile = async (requestUrl, content, headers, mdFile) => {
         console.log("updateMDFile");
         console.log(content);
         let existingContent;
@@ -149,24 +148,23 @@ function App() {
         };
         console.log("pushRequestOptions", pushRequestOptions);
 
-        return axios
-            .request({
+        try {
+            const pushResponse = await axios.request({
                 url: requestUrl,
                 headers: pushRequestOptions.headers,
                 method: pushRequestOptions.method,
                 data: pushRequestOptions.data,
-            })
-            .then((pushResponse) => {
-                console.log("pushResponse", pushResponse);
-                if (
-                    pushResponse.status === 200 ||
-                    pushResponse.status === 201
-                ) {
-                    console.log(`Successfully updated ${mdFile}`);
-                } else {
-                    console.log(`Failed to update ${mdFile}`);
-                }
             });
+            console.log("pushResponse", pushResponse);
+            if (pushResponse.status === 200 || pushResponse.status === 201) {
+                console.log(`Successfully updated ${mdFile}`);
+            } else {
+                console.log(`Failed to update ${mdFile}`);
+            }
+        } catch (error) {
+            console.log("Error updating MD file:", error);
+            throw error;
+        }
     };
 
     // メインの処理フロー
@@ -176,7 +174,6 @@ function App() {
             const requestUrl = getRequestUrl(mdFile);
             const token = getToken();
             const headers = getHeaders(token);
-
             const content = await fetchMDFile(requestUrl, headers);
             await updateMDFile(requestUrl, content, headers, mdFile);
         } catch (error) {
