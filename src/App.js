@@ -22,9 +22,7 @@ function App() {
     };
 
     const handleSubmit = () => {
-        console.log(getToken());
         main();
-        // フォームの送信処理を実装することも可能です
     };
 
     //--------------------------------------------
@@ -34,12 +32,9 @@ function App() {
     const owner = "Yamayamaaya";
     const repo = "zenn";
     const folder = "books/e8a8bb3abb437d";
-    // const today = new Date();
-    // const mdFile = `${today.getMonth() + 1}/${today.getDate()}.md`; // 例: 6/9.md
-    const mdFile = `test.md`; // 例: 6/9.md
 
     // MDファイルγの取得
-    const getRequestUrl = () => {
+    const getRequestUrl = (mdFile) => {
         return repoBApiUrl
             .replace("{owner}", owner)
             .replace("{repo}", repo)
@@ -51,29 +46,69 @@ function App() {
         return process.env.REACT_APP_ZENN_REPO_TOKEN;
     };
 
-    // リクエストヘッダーの構築
     const getHeaders = (token) => {
         return {
             Authorization: "Bearer " + token,
         };
     };
 
+    const generateNewFileName = async () => {
+        try {
+            const today = new Date();
+            const month = String(today.getMonth() + 1).padStart(2, "0");
+            const day = String(today.getDate()).padStart(2, "0");
+            const response = await axios.get(
+                `https://api.github.com/repos/${owner}/${repo}/contents/${folder}`
+            );
+
+            const files = response.data;
+            console.log("files", files);
+
+            let maxNumber = 0;
+
+            files.forEach((file) => {
+                const match = file.name.match(/(\d+)\.(\d{2})(\d{2})\.md/);
+                console.log("match", match);
+                if (match && !(match[2] === month && match[3] === day)) {
+                    const number = parseInt(match[1]);
+                    if (number > maxNumber) {
+                        maxNumber = number;
+                    }
+                }
+            });
+            const newNumber = maxNumber + 1;
+            const newFileName = `${newNumber}.${month}${day}.md`;
+            console.log("newFileName", newFileName);
+            return newFileName;
+        } catch (error) {
+            console.log("generateNewFileNameError:", error);
+        }
+    };
+
     // MDファイルγの取得
     const fetchMDFile = (url, headers) => {
-        return axios.get(url, { headers }).then((response) => {
-            console.log(response);
-            if (response.status === 200) {
-                return response.data;
-            } else if (response.status === 404) {
-                return null;
-            } else {
-                throw new Error("Failed to fetch MD file");
-            }
-        });
+        return axios
+            .get(url, { headers })
+            .then((response) => {
+                if (response.status === 200) {
+                    return response.data;
+                } else if (response.status === 404) {
+                    return null;
+                } else {
+                    throw new Error("Failed to fetch MD file");
+                }
+            })
+            .catch((error) => {
+                if (error.response && error.response.status === 404) {
+                    return null;
+                } else {
+                    throw error;
+                }
+            });
     };
 
     // MDファイルγの書き換えとプッシュ
-    const updateMDFile = (content, headers) => {
+    const updateMDFile = (requestUrl, content, headers, mdFile) => {
         console.log("updateMDFile");
         console.log(content);
         let existingContent;
@@ -105,10 +140,9 @@ function App() {
         };
 
         const pushRequestOptions = {
-            method: sha ? "PUT" : "POST", // ファイルが存在する場合はPUT、存在しない場合はPOST
+            method: "PUT",
             headers: {
                 ...headers,
-                "Content-Type": "application/json",
             },
             responseType: "json",
             data: JSON.stringify(data),
@@ -117,12 +151,7 @@ function App() {
 
         return axios
             .request({
-                url: sha
-                    ? getRequestUrl()
-                    : repoBApiUrl
-                          .replace("{owner}", owner)
-                          .replace("{repo}", repo)
-                          .replace("{path}", folder),
+                url: requestUrl,
                 headers: pushRequestOptions.headers,
                 method: pushRequestOptions.method,
                 data: pushRequestOptions.data,
@@ -143,12 +172,13 @@ function App() {
     // メインの処理フロー
     const main = async () => {
         try {
-            const requestUrl = getRequestUrl();
+            const mdFile = await generateNewFileName();
+            const requestUrl = getRequestUrl(mdFile);
             const token = getToken();
             const headers = getHeaders(token);
 
             const content = await fetchMDFile(requestUrl, headers);
-            await updateMDFile(content, headers);
+            await updateMDFile(requestUrl, content, headers, mdFile);
         } catch (error) {
             console.error("Error:", error);
         }
