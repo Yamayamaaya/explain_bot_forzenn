@@ -81,7 +81,7 @@ function App() {
             console.log("newFileName", newFileName);
             return newFileName;
         } catch (error) {
-            console.log("generateNewFileNameError:", error);
+            console.log("Error generating new file name:", error);
             throw error;
         }
     };
@@ -101,6 +101,7 @@ function App() {
             if (error.response && error.response.status === 404) {
                 return null;
             } else {
+                console.log("Error fetching MD file:", error);
                 throw error;
             }
         }
