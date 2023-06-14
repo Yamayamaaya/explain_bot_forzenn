@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import axios from "axios";
 
 function App() {
-    const [inputSets, setInputSets] = useState([{}]);
+    const [inputSets, setInputSets] = useState([
+        { word: "単語", genre: "分野" },
+    ]);
     const [contents, setContents] = useState([{}]);
     const [loading, setLoading] = useState(false);
 
@@ -55,20 +57,17 @@ function App() {
     };
 
     const handleSubmitToZenn = async () => {
-        // コンテンツのチェックが入っているものだけをループ処理で足し合わせる。
         const explains = contents
             .filter((content) => content.check)
             .map((content) => content.content)
             .join("\n\n");
 
-        // Stateの初期化
         setInputSets([{}]);
         setContents([]);
-        setLoading(false);
-
-        // Zennへの投稿処理
         main(explains);
     };
+
+    //--------------------------------------------
 
     const API_URL = "https://api.openai.com/v1/";
     const MODEL = "gpt-3.5-turbo";
@@ -78,12 +77,16 @@ function App() {
         setLoading(true);
         try {
             const prompt = `
-              ${genre}に関する用語${word}について、以下の見出しで300字程度で解説するマークダウンファイルを作成してください。
+              ${genre}に関する用語、${word}について、以下の見出しで300字程度で解説するマークダウンファイルを作成してください。
               \`\`\`md
-              ## [タイトル]
+              ## タイトル
               - 概要
+                - <概要本文> 
               - 具体例
+                - <具体例本文>
               - 関連語句
+                - <関連語句1>
+                - <関連語句2>
               \`\`\`
               `;
             const response = await axios.post(
@@ -124,7 +127,6 @@ function App() {
     const repo = "zenn";
     const folder = "books/e8a8bb3abb437d";
 
-    // MDファイルγの取得
     const getRequestUrl = (mdFile) => {
         return repoBApiUrl
             .replace("{owner}", owner)
@@ -132,7 +134,6 @@ function App() {
             .replace("{path}", folder + "/" + mdFile);
     };
 
-    // アクセストークンの取得
     const getToken = () => {
         return process.env.REACT_APP_ZENN_REPO_TOKEN;
     };
@@ -153,13 +154,11 @@ function App() {
             );
 
             const files = response.data;
-            console.log("files", files);
 
             let maxNumber = 0;
 
             files.forEach((file) => {
                 const match = file.name.match(/(\d+)\.(\d{2})(\d{2})\.md/);
-                console.log("match", match);
                 if (match && !(match[2] === month && match[3] === day)) {
                     const number = parseInt(match[1]);
                     if (number > maxNumber) {
@@ -169,7 +168,6 @@ function App() {
             });
             const newNumber = maxNumber + 1;
             const newFileName = `${newNumber}.${month}${day}.md`;
-            console.log("newFileName", newFileName);
             return newFileName;
         } catch (error) {
             console.log("Error generating new file name:", error);
@@ -177,7 +175,6 @@ function App() {
         }
     };
 
-    // MDファイルγの取得
     const fetchMDFile = async (url, headers) => {
         try {
             const response = await axios.get(url, { headers });
@@ -198,7 +195,6 @@ function App() {
         }
     };
 
-    // MDファイルγの書き換えとプッシュ
     const updateMDFile = async (
         requestUrl,
         content,
@@ -206,7 +202,6 @@ function App() {
         headers,
         mdFile
     ) => {
-        console.log("updateMDFile");
         console.log(content);
         let existingContent;
         let sha;
@@ -214,26 +209,21 @@ function App() {
         if (content) {
             existingContent = decodeURIComponent(escape(atob(content.content))); // Base64デコード
             sha = content.sha;
-            console.log("existingContent", existingContent);
         } else {
             existingContent = null;
             sha = null;
         }
 
-        // 条件に応じてMDファイルγの内容を書き換える（ここに必要な処理を追加）
         let newContent;
         if (existingContent) {
-            // 既存の内容に追記
-            newContent = existingContent + "\n" + explains; // 新しいファイルの内容を指定
+            newContent = existingContent + "\n" + explains;
         } else {
-            newContent = explains; // 新しいファイルの内容を指定
+            newContent = explains;
         }
-        console.log("newContent", newContent);
 
-        // 書き換えたMDファイルγをリポジトリBにプッシュ
         const data = {
             message: `Update ${mdFile}`,
-            content: btoa(unescape(encodeURIComponent(newContent))), // Base64エンコード
+            content: btoa(unescape(encodeURIComponent(newContent))),
             sha: sha,
         };
 
@@ -245,7 +235,6 @@ function App() {
             responseType: "json",
             data: JSON.stringify(data),
         };
-        console.log("pushRequestOptions", pushRequestOptions);
 
         try {
             const pushResponse = await axios.request({
@@ -254,7 +243,6 @@ function App() {
                 method: pushRequestOptions.method,
                 data: pushRequestOptions.data,
             });
-            console.log("pushResponse", pushResponse);
             if (pushResponse.status === 200 || pushResponse.status === 201) {
                 console.log(`Successfully updated ${mdFile}`);
             } else {
